@@ -2,7 +2,7 @@
 
 namespace MyApp\Controller;
 
-class Signup extends \MyApp\Controller {
+class Login extends \MyApp\Controller {
 
   public function run() {
     if ($this->isLoggedIn()) {
@@ -16,13 +16,10 @@ class Signup extends \MyApp\Controller {
   }
 
   protected function postProcess() {
-    //validate
     try {
       $this->_validate();
-    } catch (\MyApp\Exception\InvalidEmail $e) {
-      $this->setErrors('email', $e->getMessage());
-    } catch (\MyApp\Exception\InvalidPassword $e) {
-      $this->setErrors('password', $e->getMessage());
+    } catch (\MyApp\Exception\EmptyPost $e) {
+      $this->setErrors('login', $e->getMessage());
     }
 
     $this->setValues('email', $_POST['email']);
@@ -30,35 +27,40 @@ class Signup extends \MyApp\Controller {
     if($this->hasError()) {
       return;
     } else {
-          //created
       try {
         $userModel = new \MyApp\Model\User();
-        $userModel->create([
+        $user = $userModel->login([
           'email' => $_POST['email'],
           'password' => $_POST['password']
         ]);
-      } catch (\MyApp\Exception\DuplicateEmail $e) {
-        $this->setErrors('email', $e->getMessage());
+      } catch (\MyApp\Exception\UnmatchEmailOrPassword $e) {
+        $this->setErrors('login', $e->getMessage());
         return;
       }
 
-          //redirect to login
-          header('Location: ' . SITE_URL . '/login.php');
+          //login処理
+          session_regenerate_id(true);
+          $_SESSION['me'] = $user;
+
+          //redirect to home
+          header('Location: ' . SITE_URL);
           exit;
     }
   }
 
   private function _validate() {
     if (!isset($_POST['token']) || $_POST['token'] !== $_SESSION['token']) {
-       echo "Invalid Token!";
-       exit;
-     }
-    if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
-      throw new \MyApp\Exception\InvalidEmail();
+      echo "Invalid Token!";
+      exit;
     }
 
-    if (!preg_match('/\A[a-zA-Z0-9]+\z/', $_POST['password'])) {
-      throw new \MyApp\Exception\InvalidPassword();
+    if (!isset($_POST['email']) || !isset($_POST['password'])) {
+      echo "Invalid Form!";
+      exit;
+    }
+
+    if ($_POST['email'] === '' || $_POST['password'] === '') {
+      throw new \MyApp\Exception\EmptyPost();
     }
   }
 
